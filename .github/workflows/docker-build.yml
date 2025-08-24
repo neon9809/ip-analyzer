@@ -80,6 +80,14 @@ jobs:
           BUILDTIME=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
           VERSION=${{ steps.meta.outputs.version }}
 
+    # 🔧 新增: 安装jq命令用于JSON解析
+    - name: Install jq
+        run: |
+        sudo apt-get update
+        sudo apt-get install -y jq
+        jq --version
+
+
     # 🔧 关键6: 验证多架构镜像
     - name: Inspect multi-architecture manifest
       if: github.event_name != 'pull_request'
