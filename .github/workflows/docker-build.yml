@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build Multi-Architecture Docker Image
 
 on:
   push:
@@ -22,12 +22,20 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    # 🔧 关键1: 设置QEMU模拟器 - 支持多架构构建
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
+      with:
+        platforms: all
 
+    # 🔧 关键2: 设置Docker Buildx - 多架构构建工具
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+      with:
+        version: latest
+        driver-opts: network=host
 
+    # 🔧 关键3: 登录到GitHub Container Registry
     - name: Log in to Container Registry
       if: github.event_name != 'pull_request'
       uses: docker/login-action@v3
@@ -36,6 +44,7 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    # 🔧 关键4: 提取镜像元数据和标签
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
@@ -47,31 +56,52 @@ jobs:
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=raw,value=latest,enable={{is_default_branch}}
+        labels: |
+          org.opencontainers.image.title=IP Analyzer
+          org.opencontainers.image.description=Multi-architecture IP security analysis tool with AbuseIPDB integration
+          org.opencontainers.image.vendor=IP Analyzer Project
 
-    - name: Build and push Docker image
+    # 🔧 关键5: 构建并推送多架构镜像
+    - name: Build and push multi-architecture image
       uses: docker/build-push-action@v5
       with:
         context: .
+        file: ./Dockerfile
+        # 🎯 支持三大主流架构
         platforms: linux/amd64,linux/arm64,linux/arm/v7
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        # 🚀 优化构建缓存
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=Multi-architecture IP analyzer tool
+        # 🔧 构建参数
+        build-args: |
+          BUILDTIME=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+          VERSION=${{ steps.meta.outputs.version }}
 
-    - name: Inspect image
+    # 🔧 关键6: 验证多架构镜像
+    - name: Inspect multi-architecture manifest
       if: github.event_name != 'pull_request'
       run: |
+        echo "🔍 Inspecting multi-architecture manifest..."
         docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version || 'latest' }}
+        
+        echo ""
+        echo "📋 Supported architectures:"
+        docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version || 'latest' }} --format '{{json .}}' | jq -r '.manifests[] | "  - " + .platform.os + "/" + .platform.architecture + (if .platform.variant then "/" + .platform.variant else "" end)'
 
-  verify-multiarch:
+  # 🧪 验证各架构镜像功能
+  verify:
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name != 'pull_request'
     strategy:
       matrix:
-        platform: [linux/amd64, linux/arm64, linux/arm/v7]
+        platform: 
+          - linux/amd64
+          - linux/arm64
+          - linux/arm/v7
     
     steps:
     - name: Set up QEMU
@@ -87,9 +117,62 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
         
-    - name: Test platform ${{ matrix.platform }}
+    - name: Test ${{ matrix.platform }} image
       run: |
-        echo "Testing platform: ${{ matrix.platform }}"
-        docker run --rm --platform ${{ matrix.platform }} \
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-          python --version
+        echo "🧪 Testing platform: ${{ matrix.platform }}"
+        
+        # 拉取特定架构的镜像
+        docker pull --platform ${{ matrix.platform }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        
+        # 测试基本功能
+        echo "  ✓ Testing system architecture..."
+        docker run --rm --platform ${{ matrix.platform }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest uname -m
+        
+        echo "  ✓ Testing Python version..."
+        docker run --rm --platform ${{ matrix.platform }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest python --version
+        
+        echo "  ✓ Testing Python architecture..."
+        docker run --rm --platform ${{ matrix.platform }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest python -c "import platform; print('Machine:', platform.machine()); print('Architecture:', platform.architecture()[0])"
+        
+        echo "  ✓ Testing Flask import..."
+        docker run --rm --platform ${{ matrix.platform }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest python -c "import flask; print('Flask version:', flask.__version__)"
+        
+        echo "✅ Platform ${{ matrix.platform }} verification completed successfully!"
+
+  # 📊 生成构建报告
+  report:
+    runs-on: ubuntu-latest
+    needs: [build, verify]
+    if: github.event_name != 'pull_request'
+    
+    steps:
+    - name: Generate build report
+      run: |
+        echo "# 🎉 Multi-Architecture Build Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📦 Built Image" >> $GITHUB_STEP_SUMMARY
+        echo "- **Registry**: ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image**: ${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tag**: \`latest\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🏗️ Supported Architectures" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ **linux/amd64** - x86_64 PC, servers, x86 soft routers" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ **linux/arm64** - M-chip Mac, Raspberry Pi 4, ARM64 routers" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ **linux/arm/v7** - Raspberry Pi 3, 32-bit ARM routers" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🚀 Usage Examples" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Auto-detect architecture (recommended)" >> $GITHUB_STEP_SUMMARY
+        echo '```bash' >> $GITHUB_STEP_SUMMARY
+        echo 'docker run -d --name ip-analyzer -p 5000:5000 \' >> $GITHUB_STEP_SUMMARY
+        echo '  -e ABUSEIPDB_API_KEY="your_key" \' >> $GITHUB_STEP_SUMMARY
+        echo '  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest' >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Force specific architecture" >> $GITHUB_STEP_SUMMARY
+        echo '```bash' >> $GITHUB_STEP_SUMMARY
+        echo '# For M-chip Mac' >> $GITHUB_STEP_SUMMARY
+        echo 'docker run -d --platform linux/arm64 --name ip-analyzer \' >> $GITHUB_STEP_SUMMARY
+        echo '  -p 5000:5000 -e ABUSEIPDB_API_KEY="your_key" \' >> $GITHUB_STEP_SUMMARY
+        echo '  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest' >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
