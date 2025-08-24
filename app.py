@@ -10,7 +10,8 @@ import json
 import time
 import socket
 import csv
-import pandas as pd
+# 移除pandas导入，因为在代码中并未使用
+# import pandas as pd
 from typing import Dict, List, Optional
 import logging
 import os
