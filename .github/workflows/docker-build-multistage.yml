@@ -1,8 +1,6 @@
 name: Docker Multistage Build and Push
 
-# 触发条件
 on:
-  # 手动触发 - 增加多阶段构建选项
   workflow_dispatch:
     inputs:
       version_type:
@@ -25,17 +23,16 @@ on:
         default: 'auto'
         type: choice
         options:
-          - auto      # 自动选择最佳方案
-          - method1   # 自定义Python目录
-          - method2   # 系统级包复制
-          - test-both # 测试两种方案
+          - auto
+          - method1
+          - method2
+          - test-both
       push_to_registry:
         description: '推送到容器仓库'
         required: true
         default: true
         type: boolean
   
-  # 推送到main分支时自动构建
   push:
     branches: [ "main" ]
     paths:
@@ -45,7 +42,6 @@ on:
       - 'templates/**'
       - 'static/**'
   
-  # Pull Request时构建测试
   pull_request:
     branches: [ "main" ]
     paths:
@@ -55,13 +51,11 @@ on:
       - 'templates/**'
       - 'static/**'
 
-# 环境变量
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # 多阶段构建策略选择和测试
   multistage-build:
     runs-on: ubuntu-latest
     
@@ -79,20 +73,17 @@ jobs:
       final-size: ${{ steps.strategy-test.outputs.final_size }}
     
     steps:
-      # 检出代码
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
       
-      # 设置Docker Buildx
       - name: 🔧 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           platforms: linux/amd64,linux/arm64
       
-      # 登录到GitHub Container Registry
       - name: 🔑 Log in to Container Registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -101,7 +92,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
-      # 计算版本号
       - name: 📋 Calculate version
         id: version
         run: |
@@ -162,7 +152,6 @@ jobs:
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "is_dev=$( [ "$VERSION_TYPE" = "dev" ] && echo "true" || echo "false" )" >> $GITHUB_OUTPUT
       
-      # 多阶段构建策略测试
       - name: 🧪 Multistage Build Strategy Test
         id: strategy-test
         run: |
@@ -186,13 +175,12 @@ jobs:
           SUCCESS_METHOD=""
           BEST_SIZE=""
           
-          # 测试方案1 (除非明确指定其他策略)
+          # 测试方案1
           if [ "$STRATEGY" = "auto" ] || [ "$STRATEGY" = "method1" ] || [ "$STRATEGY" = "test-both" ]; then
             echo "📦 测试方案1: 自定义Python目录"
             if docker build -f Dockerfile-multistage-perfect -t test-ms1:latest . ; then
               echo "✅ 方案1构建成功"
               
-              # 测试Flask导入
               if docker run --rm test-ms1:latest python -c "import flask; print('Flask version:', flask.__version__)"; then
                 echo "✅ 方案1 Flask导入成功"
                 METHOD1_OK=true
@@ -210,13 +198,12 @@ jobs:
             METHOD1_OK=false
           fi
           
-          # 测试方案2 (除非明确指定method1)
+          # 测试方案2
           if [ "$STRATEGY" = "auto" ] || [ "$STRATEGY" = "method2" ] || [ "$STRATEGY" = "test-both" ]; then
             echo "📦 测试方案2: 系统级包复制"
             if docker build -f Dockerfile-multistage-alt -t test-ms2:latest . ; then
               echo "✅ 方案2构建成功"
               
-              # 测试Flask导入
               if docker run --rm test-ms2:latest python -c "import flask; print('Flask version:', flask.__version__)"; then
                 echo "✅ 方案2 Flask导入成功"
                 METHOD2_OK=true
@@ -244,7 +231,6 @@ jobs:
             BEST_SIZE="$METHOD2_SIZE"
             cp Dockerfile-multistage-alt Dockerfile.final
           elif [ "$METHOD2_OK" = "true" ]; then
-            # 优先选择方案2 (更可靠)
             SUCCESS_METHOD="method2"
             BEST_SIZE="$METHOD2_SIZE"
             cp Dockerfile-multistage-alt Dockerfile.final
@@ -259,39 +245,37 @@ jobs:
             SUCCESS_METHOD="single-stage"
             BEST_SIZE="预计180MB"
             
-            # 创建单阶段构建Dockerfile - 修复YAML语法错误
-            cat > Dockerfile.final << 'DOCKERFILE_END'
-FROM python:3.11-alpine
-
-WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV FLASK_APP=app.py
-ENV FLASK_ENV=production
-
-RUN apk add --no-cache curl gcc musl-dev linux-headers && \
-    pip install --no-cache-dir --upgrade pip
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt && \
-    apk del gcc musl-dev linux-headers
-
-COPY app.py .
-COPY templates/ templates/
-COPY static/ static/
-
-RUN mkdir -p logs config && \
-    adduser -D -s /bin/sh app && \
-    chown -R app:app /app
-
-USER app
-EXPOSE 5000
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/ || exit 1
-
-CMD ["python", "app.py"]
-DOCKERFILE_END
+            # 使用简单的echo方式创建Dockerfile
+            echo "FROM python:3.11-alpine" > Dockerfile.final
+            echo "" >> Dockerfile.final
+            echo "WORKDIR /app" >> Dockerfile.final
+            echo "ENV PYTHONDONTWRITEBYTECODE=1" >> Dockerfile.final
+            echo "ENV PYTHONUNBUFFERED=1" >> Dockerfile.final
+            echo "ENV FLASK_APP=app.py" >> Dockerfile.final
+            echo "ENV FLASK_ENV=production" >> Dockerfile.final
+            echo "" >> Dockerfile.final
+            echo "RUN apk add --no-cache curl gcc musl-dev linux-headers && \\" >> Dockerfile.final
+            echo "    pip install --no-cache-dir --upgrade pip" >> Dockerfile.final
+            echo "" >> Dockerfile.final
+            echo "COPY requirements.txt ." >> Dockerfile.final
+            echo "RUN pip install --no-cache-dir -r requirements.txt && \\" >> Dockerfile.final
+            echo "    apk del gcc musl-dev linux-headers" >> Dockerfile.final
+            echo "" >> Dockerfile.final
+            echo "COPY app.py ." >> Dockerfile.final
+            echo "COPY templates/ templates/" >> Dockerfile.final
+            echo "COPY static/ static/" >> Dockerfile.final
+            echo "" >> Dockerfile.final
+            echo "RUN mkdir -p logs config && \\" >> Dockerfile.final
+            echo "    adduser -D -s /bin/sh app && \\" >> Dockerfile.final
+            echo "    chown -R app:app /app" >> Dockerfile.final
+            echo "" >> Dockerfile.final
+            echo "USER app" >> Dockerfile.final
+            echo "EXPOSE 5000" >> Dockerfile.final
+            echo "" >> Dockerfile.final
+            echo "HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\" >> Dockerfile.final
+            echo "    CMD curl -f http://localhost:5000/ || exit 1" >> Dockerfile.final
+            echo "" >> Dockerfile.final
+            echo "CMD [\"python\", \"app.py\"]" >> Dockerfile.final
           fi
           
           echo "best_strategy=$SUCCESS_METHOD" >> $GITHUB_OUTPUT
@@ -300,7 +284,6 @@ DOCKERFILE_END
           # 清理测试镜像
           docker rmi test-ms1:latest test-ms2:latest 2>/dev/null || true
       
-      # 更新VERSION文件
       - name: 📝 Update VERSION file
         if: github.event_name != 'pull_request' && steps.version.outputs.is_dev == 'false'
         run: |
@@ -317,7 +300,6 @@ DOCKERFILE_END
             echo "VERSION文件已更新并提交"
           fi
       
-      # 推送VERSION文件更新
       - name: 🔄 Push VERSION update
         if: github.event_name != 'pull_request' && steps.version.outputs.is_dev == 'false'
         run: |
@@ -330,7 +312,6 @@ DOCKERFILE_END
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      # 准备Docker metadata
       - name: 🏷️ Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -351,7 +332,6 @@ DOCKERFILE_END
             build.strategy=${{ steps.strategy-test.outputs.best_strategy }}
             build.size=${{ steps.strategy-test.outputs.final_size }}
       
-      # 最终构建和推送
       - name: 🔨 Final Build and Push
         id: final-build
         uses: docker/build-push-action@v5
@@ -367,13 +347,11 @@ DOCKERFILE_END
           build-args: |
             BUILDKIT_INLINE_CACHE=1
       
-      # 构建结果验证
       - name: 🔍 Build Verification
         if: github.event_name != 'pull_request'
         run: |
           echo "🎯 构建验证开始..."
           
-          # 测试镜像Flask导入
           echo "🧪 测试最终镜像Flask模块..."
           if docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} python -c "import flask; print('✅ 最终镜像Flask验证成功:', flask.__version__)"; then
             echo "✅ 最终镜像Flask验证通过"
@@ -382,11 +360,9 @@ DOCKERFILE_END
             exit 1
           fi
           
-          # 获取最终镜像大小
           FINAL_IMAGE_SIZE=$(docker images ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} --format "{{.Size}}" 2>/dev/null || echo "未知")
           echo "📊 最终镜像实际大小: $FINAL_IMAGE_SIZE"
       
-      # 输出构建信息
       - name: 📊 Build Summary
         run: |
           echo "## 🐋 多阶段Docker构建完成" >> $GITHUB_STEP_SUMMARY
@@ -414,7 +390,6 @@ DOCKERFILE_END
             fi
           fi
       
-      # 安全扫描
       - name: 🛡️ Run Trivy vulnerability scanner
         if: github.event_name != 'pull_request'
         uses: aquasecurity/trivy-action@master
@@ -424,7 +399,6 @@ DOCKERFILE_END
           output: 'trivy-results.sarif'
         continue-on-error: true
       
-      # 上传安全扫描结果
       - name: 📤 Upload Trivy scan results
         if: github.event_name != 'pull_request'
         uses: github/codeql-action/upload-sarif@v3
@@ -432,7 +406,6 @@ DOCKERFILE_END
           sarif_file: 'trivy-results.sarif'
         continue-on-error: true
   
-  # 创建GitHub Release
   create-release:
     if: github.event_name != 'pull_request' && needs.multistage-build.outputs.image-version != '' && !contains(needs.multistage-build.outputs.image-version, 'dev')
     needs: multistage-build
@@ -460,51 +433,28 @@ DOCKERFILE_END
             *) STRATEGY_DESC="优化构建策略" ;;
           esac
           
-          CHANGELOG=$(cat << EOF
-          ## 🚀 Version $VERSION
-          
-          ### 🏗️ 构建信息
-          - **构建策略:** $STRATEGY_DESC
-          - **镜像大小:** $SIZE
-          - **支持架构:** linux/amd64, linux/arm64
-          - **镜像摘要:** \`${{ needs.multistage-build.outputs.image-digest }}\`
-          
-          ### 📦 Docker镜像
-          \`\`\`bash
-          docker pull ghcr.io/${{ github.repository }}:$VERSION
-          \`\`\`
-          
-          ### 🐳 Docker Compose
-          \`\`\`yaml
-          version: '3.8'
-          services:
-            ip-analyzer:
-              image: ghcr.io/${{ github.repository }}:$VERSION
-              ports:
-                - "5000:5000"
-              environment:
-                - ABUSEIPDB_API_KEY=\${ABUSEIPDB_API_KEY}
-              restart: unless-stopped
-          \`\`\`
-          
-          ### 🎯 优化亮点
-          EOF
-          )
-          
-          if [ "$STRATEGY" != "single-stage" ]; then
-            CHANGELOG="$CHANGELOG
-          - ✅ 多阶段构建成功，镜像大小显著优化
-          - 🚀 更快的部署和拉取速度
-          - 💾 节省存储空间和带宽"
-          fi
-          
-          CHANGELOG="$CHANGELOG
-          
-          > 🔍 完整的变更内容请查看提交历史"
-          
           {
             echo "changelog<<CHANGELOG_EOF"
-            echo "$CHANGELOG"
+            echo "## 🚀 Version $VERSION"
+            echo ""
+            echo "### 🏗️ 构建信息"
+            echo "- **构建策略:** $STRATEGY_DESC"
+            echo "- **镜像大小:** $SIZE"
+            echo "- **支持架构:** linux/amd64, linux/arm64"
+            echo ""
+            echo "### 📦 Docker镜像"
+            echo "\`\`\`bash"
+            echo "docker pull ghcr.io/${{ github.repository }}:$VERSION"
+            echo "\`\`\`"
+            echo ""
+            if [ "$STRATEGY" != "single-stage" ]; then
+              echo "### 🎯 优化亮点"
+              echo "- ✅ 多阶段构建成功，镜像大小显著优化"
+              echo "- 🚀 更快的部署和拉取速度"
+              echo "- 💾 节省存储空间和带宽"
+              echo ""
+            fi
+            echo "> 🔍 完整的变更内容请查看提交历史"
             echo "CHANGELOG_EOF"
           } >> $GITHUB_OUTPUT
       
@@ -523,7 +473,6 @@ DOCKERFILE_END
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   
-  # 通知构建结果
   notify:
     if: always()
     needs: [multistage-build, create-release]
