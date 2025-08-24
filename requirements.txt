@@ -1,6 +1,6 @@
+# 优化后的Python依赖 - 去掉不必要的重型依赖
 Flask==2.3.3
 requests==2.31.0
-pandas==2.1.1
 Werkzeug==2.3.7
 Jinja2==3.1.2
 MarkupSafe==2.1.3
@@ -14,5 +14,8 @@ urllib3==2.0.6
 python-dateutil==2.8.2
 pytz==2023.3
 six==1.16.0
-numpy==1.25.2
 
+# 移除的重型依赖说明：
+# pandas==2.1.1  - 在代码中导入但未使用，包含大量C扩展，约100MB+
+# numpy==1.25.2  - pandas的依赖，也是重型库，约20MB+
+# 总共可以减少约120MB+的镜像大小
