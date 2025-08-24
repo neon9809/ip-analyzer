@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  ip-analyzer:
+    build: .
+    container_name: ip-analyzer
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY:-}
+    volumes:
+      # 可选：挂载配置文件
+      - ./config:/app/config:ro
+      # 可选：挂载日志目录
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - ip-analyzer-network
+
+networks:
+  ip-analyzer-network:
+    driver: bridge
+
+# 可选：如果需要持久化数据
+volumes:
+  ip-analyzer-data:
+
