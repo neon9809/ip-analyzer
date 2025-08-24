@@ -86,28 +86,35 @@ docker-compose up -d
 docker-compose ps
 ```
 
-#### OpenWrt部署 (支持ARM架构)
-在OpenWrt路由器上部署，支持ARM64、ARMv7和x86架构：
-```bash
-# 方法1：使用专用脚本 (推荐)
-curl -sSL https://raw.githubusercontent.com/YOUR_USERNAME/ip-analyzer/main/openwrt-deploy.sh | bash -s your_api_key
-
-# 方法2：手动安装
-opkg update
-opkg install docker docker-compose
-
-# 启动Docker服务
-/etc/init.d/docker start
-/etc/init.d/docker enable
-
-# 部署应用 (自动检测架构)
-./openwrt-deploy.sh your_api_key
-```
-
 **支持的设备架构:**
 - ✅ ARM64 (树莓派4、香橙派等)
-- ✅ ARMv7 (树莓派3、小米路由器等)  
 - ✅ x86_64 (软路由、PC等)
+
+#### docker run
+
+Docker:
+```bash
+docker run -d \
+--name ip-analyzer \
+        -p 8888:5000 \
+        -e FLASK_ENV=production \
+        -v /path/to/file/config:/app/config:ro \
+        -v /path/to/file/logs:/app/logs \
+        ghcr.io/neon9809/ip-analyzer:latest
+```
+
+Apple Container:
+```bash
+container run -d \
+--name ip-analyzer \
+        -p 8888:5000 \
+        -e FLASK_ENV=production \
+        -v /path/to/file/config:/app/config:ro \
+        -v /path/to/file/logs:/app/logs \
+        ghcr.io/neon9809/ip-analyzer:latest
+```
+
+
 
 ### 方法二：本地部署
 ```bash
