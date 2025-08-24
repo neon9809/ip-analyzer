@@ -3,7 +3,7 @@ version: '3.8'
 services:
   ip-analyzer:
     container_name: ip-analyzer
-    image: gchr.io/neon1998/ip-analyzer:latest
+    image: ghcr.io/neon1998/ip-analyzer:latest
     ports:
       - "5000:5000"
     environment:
