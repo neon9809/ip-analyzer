@@ -1,0 +1,101 @@
+# 完美的多阶段构建Dockerfile - 深度解析版
+
+# ==================== 第一阶段：构建阶段 ====================
+FROM python:3.11-alpine AS builder
+
+# 设置构建参数
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM  
+ARG TARGETOS
+ARG TARGETARCH
+
+# 设置工作目录
+WORKDIR /build
+
+# 显示构建信息
+RUN echo "Building for $TARGETPLATFORM on $BUILDPLATFORM"
+
+# 🔑 关键点1: 创建专用的Python包安装目录
+ENV PYTHONUSERBASE=/opt/python
+ENV PATH=/opt/python/bin:$PATH
+
+# 安装构建依赖
+RUN apk add --no-cache --virtual .build-deps \
+    gcc \
+    musl-dev \
+    linux-headers \
+    libffi-dev \
+    openssl-dev
+
+# 复制requirements文件
+COPY requirements.txt .
+
+# 🔑 关键点2: 安装到自定义目录，确保权限正确
+RUN pip install --user --no-cache-dir --no-warn-script-location \
+    --prefix=/opt/python \
+    -r requirements.txt
+
+# 🔑 关键点3: 验证安装结果
+RUN echo "=== 构建阶段验证 ===" && \
+    ls -la /opt/python/ && \
+    ls -la /opt/python/lib/python3.11/site-packages/ | head -10 && \
+    /opt/python/bin/python -c "import flask; print('✅ Flask version:', flask.__version__)"
+
+# ==================== 第二阶段：运行阶段 ====================
+FROM python:3.11-alpine
+
+# 设置环境变量
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_APP=app.py
+ENV FLASK_ENV=production
+
+# 🔑 关键点4: 设置Python路径指向复制的包目录
+ENV PYTHONUSERBASE=/opt/python
+ENV PATH=/opt/python/bin:$PATH
+ENV PYTHONPATH=/opt/python/lib/python3.11/site-packages:$PYTHONPATH
+
+# 安装运行时依赖
+RUN apk add --no-cache curl
+
+# 设置工作目录
+WORKDIR /app
+
+# 🔑 关键点5: 从构建阶段复制Python包到相同路径
+COPY --from=builder /opt/python /opt/python
+
+# 🔑 关键点6: 验证复制结果
+RUN echo "=== 运行阶段验证 ===" && \
+    ls -la /opt/python/ && \
+    ls -la /opt/python/lib/python3.11/site-packages/ | head -10 && \
+    python -c "import sys; print('Python path:', sys.path)" && \
+    python -c "import flask; print('✅ Flask import successful, version:', flask.__version__)"
+
+# 复制应用代码
+COPY app.py .
+COPY templates/ templates/
+COPY static/ static/
+
+# 创建必要目录
+RUN mkdir -p logs config
+
+# 🔑 关键点7: 创建用户但保持包目录权限
+RUN adduser -D -s /bin/sh app && \
+    chown -R app:app /app && \
+    chown -R app:app /opt/python
+
+# 切换到非root用户
+USER app
+
+# 🔑 关键点8: 最终验证
+RUN python -c "import flask; print('✅ Final verification: Flask', flask.__version__)"
+
+# 暴露端口
+EXPOSE 5000
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/ || exit 1
+
+# 启动命令
+CMD ["python", "app.py"]
