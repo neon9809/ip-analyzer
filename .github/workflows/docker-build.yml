@@ -26,7 +26,7 @@ jobs:
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
       with:
-        platforms: all
+        platforms: linux/amd64,linux/arm64
 
     # 🔧 关键2: 设置Docker Buildx - 多架构构建工具
     - name: Set up Docker Buildx
