@@ -38,7 +38,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:5000/ || exit 1
 
 CMD ["python", "app.py"]
-EOF
+
 
 # 2. 提交推送
 git add Dockerfile
