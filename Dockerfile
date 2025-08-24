@@ -1,5 +1,4 @@
 
-
 FROM python:3.11-slim
 
 # 设置构建参数
@@ -18,15 +17,13 @@ ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
 
 # 显示构建信息
-RUN echo "Building for $TARGETPLATFORM on $BUILDPLATFORM" && \
-    echo "Target OS: $TARGETOS, Target Arch: $TARGETARCH"
+RUN echo "Building for $TARGETPLATFORM on $BUILDPLATFORM"
 
 # 根据架构安装系统依赖
 RUN apt-get update && apt-get install -y \
     gcc \
     curl \
     && if [ "$TARGETARCH" = "arm" ] || [ "$TARGETARCH" = "arm64" ]; then \
-        echo "Installing ARM-specific dependencies..." && \
         apt-get install -y g++; \
     fi \
     && rm -rf /var/lib/apt/lists/*
@@ -34,7 +31,7 @@ RUN apt-get update && apt-get install -y \
 # 复制requirements文件
 COPY requirements.txt .
 
-# 安装Python依赖 - 简化版本，移除复杂逻辑
+# 安装Python依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制应用代码
