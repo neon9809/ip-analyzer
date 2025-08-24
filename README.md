@@ -249,7 +249,7 @@ docker-compose up -d
 
 ## 致谢
 
-本项目代码主要由Manus AI根据多轮指令生成，由Perplexity AI (Labs)根据多轮指令精简镜像依赖并设计多阶段构建指令（258MB > 74.8MB）。
+本项目代码主要由[Manus AI](https://manus.im)根据多轮指令生成，由[Perplexity AI](https://www.perplexity.ai) (Labs)根据多轮指令精简镜像依赖并设计多阶段构建指令（258MB > 74.8MB）。
 
 ---
 
