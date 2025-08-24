@@ -82,7 +82,7 @@ jobs:
 
     # 🔧 新增: 安装jq命令用于JSON解析
     - name: Install jq
-        run: |
+      run: |
         sudo apt-get update
         sudo apt-get install -y jq
         jq --version
