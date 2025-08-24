@@ -27,7 +27,7 @@ on:
   
   # 推送到main分支时自动构建
   push:
-    branches: [ "test" ]
+    branches: [ "main" ]
     paths:
       - 'app.py'
       - 'requirements.txt'
