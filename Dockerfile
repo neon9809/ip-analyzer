@@ -39,8 +39,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 CMD ["python", "app.py"]
 
-
-# 2. 提交推送
-git add Dockerfile
-git commit -m "Simplify Dockerfile: remove complex pip logic causing build failures"
-git push origin main
