@@ -55,7 +55,7 @@
 
 ### 环境要求
 - Python 3.7+ (本地部署)
-- Docker & Docker Compose (容器部署)
+- Docker or Docker Compose (容器部署)
 - AbuseIPDB API密钥
 
 ### 方法一：Docker部署 (推荐)
@@ -63,7 +63,7 @@
 #### 快速部署
 ```bash
 # 1. 克隆项目
-git clone <your-repo-url>
+git clone https://github.com/neon9809/ip-analyzer
 cd ip-analyzer-app
 
 # 2. 配置API密钥
@@ -207,30 +207,20 @@ docker-compose up -d
 
 ### 高风险 🔴
 - 恶意置信度 ≥ 75%
-- 多次被举报（≥10次）
 - 已知恶意活动
 
 ### 中风险 🟡
 - 恶意置信度 25-74%
-- 有举报记录（5-9次）
 - 可疑活动
 
 ### 低风险 🔵
 - 恶意置信度 1-24%
-- 少量举报记录（1-4次）
 - 轻微异常
 
 ### 正常 🟢
 - 恶意置信度 0%
-- 无举报记录
 - 正常IP地址
 
-## 安全和隐私
-
-- 所有API调用都通过HTTPS加密
-- 不存储用户输入的IP地址
-- API密钥仅保存在用户本地浏览器
-- 分析结果可选择性保存
 
 ## 故障排除
 
@@ -245,20 +235,7 @@ docker-compose up -d
 - API密钥有效性
 - 浏览器控制台错误信息
 
-## 更新日志
 
-### v2.0 (当前版本)
-- ✅ 增加IPv6地址支持
-- ✅ 增强IP格式解析（支持多种分隔符）
-- ✅ 集成真实AbuseIPDB API
-- ✅ 实时进度监控
-- ✅ 风险等级自动评估
-- ✅ 响应式界面设计
-
-### v1.0
-- ✅ 基础IPv4地址分析
-- ✅ IPinfo地理位置查询
-- ✅ 基础Web界面
 
 ## 许可证
 
