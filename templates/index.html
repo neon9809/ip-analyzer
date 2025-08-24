@@ -4,263 +4,254 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IP地址安全分析工具</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- 自定义样式 -->
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
 <body>
     <div class="container-fluid">
-        <!-- 头部 -->
-        <nav class="navbar navbar-dark bg-dark mb-4">
-            <div class="container">
-                <span class="navbar-brand mb-0 h1">
-                    <i class="fas fa-shield-alt"></i> IP地址安全分析工具
-                </span>
-                <span class="navbar-text">
-                    集成AbuseIPDB恶意IP检测
-                </span>
+        <!-- 标题区域 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="text-center py-4 bg-primary text-white rounded">
+                    <h1><i class="fas fa-shield-alt"></i> IP地址安全分析工具</h1>
+                    <p class="mb-0">支持IPv4、IPv6地址批量分析，集成AbuseIPDB API提供实时威胁情报</p>
+                </div>
             </div>
-        </nav>
+        </div>
 
-        <div class="container">
-            <!-- API配置区域 -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-key"></i> API配置
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <label for="apiKey" class="form-label">AbuseIPDB API密钥</label>
-                                    <input type="password" class="form-control" id="apiKey" 
-                                           placeholder="输入您的AbuseIPDB API密钥">
-                                    <div class="form-text">
-                                        免费账户限制：每日1,000次IP查询 | 
-                                        <a href="https://www.abuseipdb.com/api" target="_blank">获取API密钥</a>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">API使用状态</label>
-                                    <div id="apiStatus" class="alert alert-secondary">
-                                        <i class="fas fa-info-circle"></i> 未配置
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+        <!-- 配置区域 -->
+        <div class="row mb-4">
+            <!-- API配置 -->
+            <div class="col-md-6">
+                <h5><i class="fas fa-key"></i> API配置</h5>
+                <div class="row g-3">
+                    <div class="col-9">
+                        <label for="apiKey" class="form-label">
+                            <i class="fas fa-shield-alt"></i> AbuseIPDB API密钥
+                        </label>
+                        <input type="password" class="form-control" id="apiKey" 
+                               placeholder="输入您的AbuseIPDB API密钥">
+                    </div>
+                    <div class="col-3 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-primary w-100" 
+                                id="validateApiBtn" onclick="validateApiKey()">
+                            <i class="fas fa-check-circle"></i> 验证
+                        </button>
+                    </div>
+                </div>
+
+                <small class="text-muted">
+                    免费账户限制：每日1,000次IP查询 | 
+                    <a href="https://www.abuseipdb.com/account/api" target="_blank">获取API密钥</a>
+                </small>
+
+                <div class="mt-2">
+                    <div id="apiStatus" class="alert alert-secondary">
+                        <i class="fas fa-info-circle"></i> 未配置
+                    </div>
+                    <div id="apiQuotaInfo" class="small text-muted" style="display: none;">
+                        API配额信息: <span id="quotaDetails"></span>
                     </div>
                 </div>
             </div>
 
-            <!-- IP输入区域 -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-list"></i> IP地址输入
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <label for="ipInput" class="form-label">IP地址列表</label>
-                                    <textarea class="form-control" id="ipInput" rows="10" 
-                                              placeholder="请输入IP地址，支持IPv4和IPv6，支持多种格式：&#10;&#10;IPv4示例：&#10;192.168.1.1&#10;8.8.8.8, 8.8.4.4&#10;&#10;IPv6示例：&#10;2001:4860:4860::8888&#10;::1, 2001:db8::1&#10;&#10;混合格式：&#10;192.168.1.1, 2001:db8::1&#10;8.8.8.8 2001:4860:4860::8888&#10;&#10;支持分隔符：空格、逗号、分号、换行"></textarea>
-                                    <div class="form-text">
-                                        支持IPv4、IPv6地址，支持空格、逗号、分号、换行等多种分隔符
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">快速操作</label>
-                                    <div class="d-grid gap-2">
-                                        <button type="button" class="btn btn-outline-secondary" onclick="loadSampleIPs()">
-                                            <i class="fas fa-file-import"></i> 加载示例IP
-                                        </button>
-                                        <button type="button" class="btn btn-outline-secondary" onclick="clearIPs()">
-                                            <i class="fas fa-trash"></i> 清空
-                                        </button>
-                                        <button type="button" class="btn btn-outline-secondary" onclick="countIPs()">
-                                            <i class="fas fa-calculator"></i> 统计数量
-                                        </button>
-                                    </div>
-                                    <div id="ipCount" class="mt-3 alert alert-info" style="display: none;">
-                                        <i class="fas fa-info-circle"></i> 
-                                        <span id="ipCountText">0个IP地址</span>
-                                    </div>
-                                </div>
+            <!-- IP地址输入 -->
+            <div class="col-md-6">
+                <h5><i class="fas fa-network-wired"></i> IP地址输入</h5>
+
+                <div class="mb-3">
+                    <label for="ipInput" class="form-label">
+                        <i class="fas fa-list"></i> IP地址列表
+                    </label>
+                    <textarea class="form-control" id="ipInput" rows="6" 
+                              placeholder="支持IPv4、IPv6地址，支持空格、逗号、分号、换行等多种分隔符"></textarea>
+                    <small class="text-muted">支持IPv4、IPv6地址，支持空格、逗号、分号、换行等多种分隔符</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">快速操作</label>
+                    <div class="btn-group w-100" role="group">
+                        <button type="button" class="btn btn-outline-secondary" onclick="loadSampleIPs()">
+                            <i class="fas fa-magic"></i> 示例IP
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="clearIPs()">
+                            <i class="fas fa-trash"></i> 清空
+                        </button>
+                    </div>
+                </div>
+
+                <div id="ipCount" class="mt-3 alert alert-info" style="display: none;">
+                    <i class="fas fa-info-circle"></i> <span id="ipCountText">0个IP地址</span>
+                </div>
+
+                <div class="d-grid">
+                    <button type="button" class="btn btn-secondary" id="analyzeBtn" disabled onclick="startAnalysis()">
+                        <i class="fas fa-lock"></i> 请先验证API密钥
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分析进度区域 -->
+        <div id="progressSection" class="row mb-4" style="display: none;">
+            <div class="col-12">
+                <h5><i class="fas fa-chart-line"></i> 分析进度</h5>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="progress mb-3">
+                            <div class="progress-bar" id="progressBar" role="progressbar" style="width: 0%">
+                                <span id="progressText">0%</span>
                             </div>
-                            <div class="row mt-3">
-                                <div class="col-12">
-                                    <button type="button" class="btn btn-primary btn-lg" onclick="startAnalysis()">
-                                        <i class="fas fa-search"></i> 开始分析
-                                    </button>
-                                    <button type="button" class="btn btn-danger" id="stopBtn" onclick="stopAnalysis()" style="display: none;">
-                                        <i class="fas fa-stop"></i> 停止分析
-                                    </button>
-                                </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>当前状态：</strong> <span id="currentStatus">准备中...</span></p>
+                                <p><strong>当前IP：</strong> <span id="currentIP">-</span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>已完成：</strong> <span id="completedCount">0</span> / <span id="totalCount">0</span></p>
+                                <p><strong>预计剩余：</strong> <span id="estimatedTime">计算中...</span></p>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn btn-danger" id="stopBtn" onclick="stopAnalysis()" style="display: none;">
+                            <i class="fas fa-stop"></i> 停止分析
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分析结果区域 -->
+        <div id="resultsSection" class="row" style="display: none;">
+            <div class="col-12">
+                <h5><i class="fas fa-chart-bar"></i> 分析结果</h5>
+
+                <!-- 统计摘要 -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h4 class="card-title text-primary" id="totalAnalyzed">0</h4>
+                                <p class="card-text">总计分析</p>
+                                <i class="fas fa-chart-line fa-2x text-primary"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h4 class="card-title text-danger" id="highRiskCount">0</h4>
+                                <p class="card-text">高风险</p>
+                                <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h4 class="card-title text-warning" id="mediumRiskCount">0</h4>
+                                <p class="card-text">中风险</p>
+                                <i class="fas fa-exclamation-circle fa-2x text-warning"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h4 class="card-title text-success" id="lowRiskCount">0</h4>
+                                <p class="card-text">正常/低风险</p>
+                                <i class="fas fa-check-circle fa-2x text-success"></i>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- 分析进度区域 -->
-            <div class="row mb-4" id="progressSection" style="display: none;">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-chart-line"></i> 分析进度
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="progress mb-3">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                     id="progressBar" role="progressbar" style="width: 0%">
-                                    <span id="progressText">0%</span>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p class="mb-1"><strong>当前状态：</strong> <span id="currentStatus">准备中...</span></p>
-                                    <p class="mb-1"><strong>当前IP：</strong> <span id="currentIP">-</span></p>
-                                </div>
-                                <div class="col-md-6">
-                                    <p class="mb-1"><strong>已完成：</strong> <span id="completedCount">0</span> / <span id="totalCount">0</span></p>
-                                    <p class="mb-1"><strong>预计剩余：</strong> <span id="estimatedTime">计算中...</span></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <!-- 结果表格 -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="sortable" data-sort="ip">IP地址 <i class="fas fa-sort"></i></th>
+                                <th class="sortable" data-sort="risk_level">风险等级 <i class="fas fa-sort"></i></th>
+                                <th class="sortable" data-sort="abuse_confidence">恶意置信度 <i class="fas fa-sort"></i></th>
+                                <th class="sortable" data-sort="total_reports">举报次数 <i class="fas fa-sort"></i></th>
+                                <th class="sortable" data-sort="country">国家 <i class="fas fa-sort"></i></th>
+                                <th class="sortable" data-sort="city">城市 <i class="fas fa-sort"></i></th>
+                                <th class="sortable" data-sort="org">组织/ISP <i class="fas fa-sort"></i></th>
+                                <th class="sortable" data-sort="dns_ptr">DNS反向解析 <i class="fas fa-sort"></i></th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody">
+                            <!-- 动态生成的结果行 -->
+                        </tbody>
+                    </table>
                 </div>
-            </div>
 
-            <!-- 结果展示区域 -->
-            <div class="row" id="resultsSection" style="display: none;">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">
-                                <i class="fas fa-chart-bar"></i> 分析结果
-                            </h5>
-                            <div>
-                                <div class="btn-group me-2" role="group">
-                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="quickSortByRisk()" title="按恶意置信度降序排列">
-                                        <i class="fas fa-exclamation-triangle"></i> 按风险
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-warning" onclick="quickSortByReports()" title="按举报次数降序排列">
-                                        <i class="fas fa-flag"></i> 按举报
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="quickSortByCountry()" title="按国家排序">
-                                        <i class="fas fa-globe"></i> 按国家
-                                    </button>
-                                </div>
-                                <div class="btn-group" role="group">
-                                    <button type="button" class="btn btn-sm btn-success" onclick="downloadResults()">
-                                        <i class="fas fa-download"></i> 下载CSV
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-info" onclick="exportJSON()">
-                                        <i class="fas fa-file-code"></i> 导出JSON
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <!-- 统计摘要 -->
-                            <div class="row mb-4" id="summaryStats">
-                                <div class="col-md-3">
-                                    <div class="card bg-primary text-white">
-                                        <div class="card-body text-center">
-                                            <h4 id="totalAnalyzed">0</h4>
-                                            <p class="mb-0">总计分析</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card bg-danger text-white">
-                                        <div class="card-body text-center">
-                                            <h4 id="highRiskCount">0</h4>
-                                            <p class="mb-0">高风险</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card bg-warning text-white">
-                                        <div class="card-body text-center">
-                                            <h4 id="mediumRiskCount">0</h4>
-                                            <p class="mb-0">中风险</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card bg-success text-white">
-                                        <div class="card-body text-center">
-                                            <h4 id="lowRiskCount">0</h4>
-                                            <p class="mb-0">正常/低风险</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 结果表格 -->
-                            <div class="table-responsive">
-                                <table class="table table-striped table-hover" id="resultsTable">
-                                    <thead class="table-dark">
-                                        <tr>
-                                            <th class="sortable" data-sort="ip">
-                                                IP地址 <i class="fas fa-sort sort-icon"></i>
-                                            </th>
-                                            <th class="sortable" data-sort="risk_level">
-                                                风险等级 <i class="fas fa-sort sort-icon"></i>
-                                            </th>
-                                            <th class="sortable" data-sort="abuse_confidence">
-                                                恶意置信度 <i class="fas fa-sort sort-icon"></i>
-                                            </th>
-                                            <th class="sortable" data-sort="total_reports">
-                                                举报次数 <i class="fas fa-sort sort-icon"></i>
-                                            </th>
-                                            <th class="sortable" data-sort="country">
-                                                国家 <i class="fas fa-sort sort-icon"></i>
-                                            </th>
-                                            <th class="sortable" data-sort="city">
-                                                城市 <i class="fas fa-sort sort-icon"></i>
-                                            </th>
-                                            <th>组织/ISP</th>
-                                            <th>DNS反向解析</th>
-                                            <th>操作</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="resultsTableBody">
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+                <!-- 导出按钮 -->
+                <div class="d-flex gap-2 mt-3">
+                    <button type="button" class="btn btn-success" onclick="downloadResults()">
+                        <i class="fas fa-download"></i> 下载CSV
+                    </button>
+                    <button type="button" class="btn btn-info" onclick="exportJSON()">
+                        <i class="fas fa-file-code"></i> 导出JSON
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 详情模态框 -->
+    <!-- IP详细信息模态框 -->
     <div class="modal fade" id="detailModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">IP详细信息</h5>
+                    <h5 class="modal-title"><i class="fas fa-info-circle"></i> IP详细信息</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="detailModalBody">
+                    <!-- 动态生成的详细信息 -->
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- 自定义JavaScript -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
+<style>
+    body {
+        padding-bottom: 80px;
+    }
+    footer {
+        position: relative;
+        bottom: 0;
+        width: 100%;
+        padding: 24px 0 12px 0;
+        background: #f8f9fa;
+        text-align: center;
+        color: #6c757d;
+        font-size: 0.95rem;
+        border-top: 1px solid #e9ecef;
+        margin-top: 40px;
+    }
+</style>
+<footer>
+    <div style="margin-top: 8px; font-size: 12px; color: #666; text-align: center;">
+        <p>
+            <a href="https://github.com/neon9809/ip-analyzer/">IP-ANALYZER</a>
+            &copy; 2025 All Rights Reserved.
+        </p>
+    </div>
+</footer>
 </html>
 
