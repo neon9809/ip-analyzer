@@ -265,7 +265,7 @@ jobs:
       # 上传安全扫描结果
       - name: 📤 Upload Trivy scan results
         if: github.event_name != 'pull_request'
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
         continue-on-error: true  # 允许上传失败继续执行
