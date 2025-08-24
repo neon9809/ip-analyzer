@@ -26,7 +26,7 @@ jobs:
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
       with:
-        platforms: linux/amd64,linux/arm64
+        platforms: all
 
     # 🔧 关键2: 设置Docker Buildx - 多架构构建工具
     - name: Set up Docker Buildx
@@ -67,7 +67,7 @@ jobs:
       with:
         context: .
         file: ./Dockerfile
-        # 🎯 支持三大主流架构
+        # 🎯 支持两大主流架构 (移除ARM v7以避免构建超时)
         platforms: linux/amd64,linux/arm64
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta.outputs.tags }}
@@ -143,5 +143,35 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, verify]
     if: github.event_name != 'pull_request'
-
     
+    steps:
+    - name: Generate build report
+      run: |
+        echo "# 🎉 Multi-Architecture Build Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📦 Built Image" >> $GITHUB_STEP_SUMMARY
+        echo "- **Registry**: ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image**: ${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tag**: \`latest\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🏗️ Supported Architectures" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ **linux/amd64** - x86_64 PC, servers, x86 soft routers" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ **linux/arm64** - M-chip Mac, Raspberry Pi 4, ARM64 routers" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ **linux/arm/v7** - Raspberry Pi 3, 32-bit ARM routers" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🚀 Usage Examples" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Auto-detect architecture (recommended)" >> $GITHUB_STEP_SUMMARY
+        echo '```bash' >> $GITHUB_STEP_SUMMARY
+        echo 'docker run -d --name ip-analyzer -p 5000:5000 \' >> $GITHUB_STEP_SUMMARY
+        echo '  -e ABUSEIPDB_API_KEY="your_key" \' >> $GITHUB_STEP_SUMMARY
+        echo '  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest' >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Force specific architecture" >> $GITHUB_STEP_SUMMARY
+        echo '```bash' >> $GITHUB_STEP_SUMMARY
+        echo '# For M-chip Mac' >> $GITHUB_STEP_SUMMARY
+        echo 'docker run -d --platform linux/arm64 --name ip-analyzer \' >> $GITHUB_STEP_SUMMARY
+        echo '  -p 5000:5000 -e ABUSEIPDB_API_KEY="your_key" \' >> $GITHUB_STEP_SUMMARY
+        echo '  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest' >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
