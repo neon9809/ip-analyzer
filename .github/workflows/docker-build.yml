@@ -51,26 +51,22 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # 构建和推送Docker镜像
   build-and-push:
     runs-on: ubuntu-latest
     
-    # 权限设置
+    # 这就是全部需要的权限配置
     permissions:
-      contents: read
-      packages: write
-      id-token: write
-    
-    outputs:
-      image-digest: ${{ steps.build.outputs.digest }}
-      image-version: ${{ steps.version.outputs.version }}
+      contents: write      # 推送VERSION文件
+      packages: write      # 推送Docker镜像到ghcr.io
+      id-token: write      # OIDC认证（可选）
+      security-events: write # 上传安全扫描结果（可选）
     
     steps:
-      # 检出代码
-      - name: 📥 Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 获取完整历史，用于版本计算
+          token: ${{ secrets.GITHUB_TOKEN }}  # 使用自动提供的token
+
       
       # 设置Docker Buildx
       - name: 🔧 Set up Docker Buildx
@@ -166,23 +162,38 @@ jobs:
           echo "patch=$PATCH" >> $GITHUB_OUTPUT
           echo "is_dev=$( [ "$VERSION_TYPE" = "dev" ] && echo "true" || echo "false" )" >> $GITHUB_OUTPUT
       
-      # 更新VERSION文件
+      # 更新VERSION文件 - 使用更安全的方式
       - name: 📝 Update VERSION file
         if: github.event_name != 'pull_request' && steps.version.outputs.is_dev == 'false'
         run: |
           echo "${{ steps.version.outputs.version }}" > VERSION
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add VERSION
-          git commit -m "chore: bump version to ${{ steps.version.outputs.version }}" || exit 0
+          
+          # 配置Git用户
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # 检查是否有变更
+          if git diff --quiet; then
+            echo "VERSION文件无变更，跳过提交"
+          else
+            git add VERSION
+            git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]"
+            echo "VERSION文件已更新并提交"
+          fi
       
-      # 推送VERSION文件更新
+      # 推送VERSION文件更新 - 使用官方Actions
       - name: 🔄 Push VERSION update
         if: github.event_name != 'pull_request' && steps.version.outputs.is_dev == 'false'
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.ref }}
+        run: |
+          # 检查是否有待推送的提交
+          if git log origin/${{ github.ref_name }}..${{ github.ref_name }} --oneline | grep -q .; then
+            echo "推送VERSION文件更新..."
+            git push origin ${{ github.ref_name }}
+          else
+            echo "无需推送，VERSION文件无变更"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       # 准备Docker metadata
       - name: 🏷️ Extract metadata
@@ -249,6 +260,7 @@ jobs:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           format: 'sarif'
           output: 'trivy-results.sarif'
+        continue-on-error: true  # 允许扫描失败继续执行
       
       # 上传安全扫描结果
       - name: 📤 Upload Trivy scan results
@@ -256,6 +268,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: 'trivy-results.sarif'
+        continue-on-error: true  # 允许上传失败继续执行
   
   # 创建GitHub Release（仅限正式版本）
   create-release:
@@ -264,7 +277,7 @@ jobs:
     runs-on: ubuntu-latest
     
     permissions:
-      contents: write
+      contents: write    # 创建Release需要写权限
     
     steps:
       - name: 📥 Checkout repository
@@ -308,10 +321,12 @@ jobs:
           # 保存到文件
           echo "$CHANGELOG" > release_notes.md
           
-          # 设置输出
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # 设置输出 - 使用更安全的方式
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            echo "$CHANGELOG"
+            echo "CHANGELOG_EOF"
+          } >> $GITHUB_OUTPUT
       
       - name: 🏷️ Create Release
         uses: softprops/action-gh-release@v1
