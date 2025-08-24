@@ -259,8 +259,8 @@ jobs:
             SUCCESS_METHOD="single-stage"
             BEST_SIZE="预计180MB"
             
-            # 创建单阶段构建Dockerfile
-            cat > Dockerfile.final << 'EOF'
+            # 创建单阶段构建Dockerfile - 修复YAML语法错误
+            cat > Dockerfile.final << 'DOCKERFILE_END'
 FROM python:3.11-alpine
 
 WORKDIR /app
@@ -291,7 +291,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:5000/ || exit 1
 
 CMD ["python", "app.py"]
-EOF
+DOCKERFILE_END
           fi
           
           echo "best_strategy=$SUCCESS_METHOD" >> $GITHUB_OUTPUT
