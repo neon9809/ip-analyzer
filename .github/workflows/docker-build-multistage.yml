@@ -1,6 +1,5 @@
 name: Docker Build Push Release
 
-
 on:
   push:
     tags: [ 'v*' ]
