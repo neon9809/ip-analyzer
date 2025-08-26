@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - main
-    # 只在 commit message 里包含 vX.Y.Z 格式时触发
-    # 注意：这里用 regex 来匹配 commit message
-    # GitHub Actions 只能用 paths-ignore 或 tags filter，这里后续用 job 条件判断
-    # 所以我们在 job 里再用 if 判断
 
 jobs:
   docker_build:
