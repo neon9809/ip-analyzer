@@ -10,10 +10,6 @@ on:
         description: '手动输入版本号 (如 1.2.3)'
         required: true
 
-  push:
-    tags:
-      - 'v*'   # 仅 v 开头的 tag 才触发
-
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
