@@ -2,7 +2,11 @@ name: Docker Build Push Release
 
 on:
   push:
-    tags: [ 'v*' ]
+    branches:
+      - main
+    # 仅当 commit message 以 v 开头时触发
+    paths-ignore:
+      - '**/*.md'
   workflow_dispatch:
     inputs:
       version:
@@ -15,6 +19,7 @@ env:
 
 jobs:
   build-and-push:
+    if: startsWith(github.event.head_commit.message, 'v') # 这里控制 commit message
     runs-on: ubuntu-latest
     permissions:
       contents: write
