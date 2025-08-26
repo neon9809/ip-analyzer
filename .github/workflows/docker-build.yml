@@ -9,7 +9,7 @@ jobs:
   docker_build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     outputs:
       image_tag: ${{ steps.set_version.outputs.version }}
