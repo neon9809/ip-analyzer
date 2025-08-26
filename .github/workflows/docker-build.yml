@@ -63,6 +63,10 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
           build-args: |
             VERSION=${{ steps.set_version.outputs.version }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.set_version.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
 
       # 7. Create GitHub Release
       - name: Create GitHub Release
