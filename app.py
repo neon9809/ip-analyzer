@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-IP地址安全分析Web应用
-支持批量IP分析，集成AbuseIPDB API
-"""
-
 from flask import Flask, render_template, request, jsonify, send_file
 import requests
 import json
