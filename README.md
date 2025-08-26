@@ -89,8 +89,8 @@ docker-compose ps
 ```
 
 **支持的设备架构:**
-- ✅ ARM64 (树莓派4、香橙派等)
-- ✅ x86_64 (软路由、PC等)
+- ✅ ARM64
+- ✅ x86_64
 
 #### docker run
 
