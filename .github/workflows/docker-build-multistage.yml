@@ -1,106 +1,77 @@
-name: Docker Build Push Release
+name: Docker Build & Release
 
 on:
   push:
     branches:
       - main
-    # 仅当 commit message 以 v 开头时触发
-    paths-ignore:
-      - '**/*.md'
   workflow_dispatch:
     inputs:
       version:
-        description: '手动输入版本号 (如 1.2.3)'
+        description: 'Version to release (e.g., 0.1.6)'
         required: true
+        default: ''
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
-    if: startsWith(github.event.head_commit.message, 'v') # 这里控制 commit message
+  build:
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-
     outputs:
-      image-version: ${{ steps.version.outputs.version }}
-
+      version: ${{ steps.set-version.outputs.version }}
     steps:
-      - name: 📥 Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 🔧 Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          platforms: linux/amd64,linux/arm64
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-      - name: 🔑 Log in to GHCR
-        uses: docker/login-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Determine version
+        id: set-version
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            COMMIT_MSG=$(git log -1 --pretty=%B)
+            if [[ $COMMIT_MSG =~ ^v(.*) ]]; then
+              VERSION="${BASH_REMATCH[1]}"
+            else
+              echo "Commit message does not start with v, skipping build."
+              exit 0
+            fi
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 📋 Determine version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            # 从 commit message 提取版本号，比如 "v1.2.3" → "1.2.3"
-            MSG="${{ github.event.head_commit.message }}"
-            VERSION="${MSG#v}"
-          fi
-          echo "Using version: $VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: 🔨 Build & Push (Method2)
+      - name: Build and push multi-arch Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          labels: |
-            org.opencontainers.image.title=${{ github.repository }}
-            org.opencontainers.image.version=${{ steps.version.outputs.version }}
-            org.opencontainers.image.source=${{ github.repository }}
+            ${{ env.IMAGE_NAME }}:${{ steps.set-version.outputs.version }}
 
-  release:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 📝 Prepare release notes
-        id: notes
-        run: |
-          if [ -f changelog.md ]; then
-            BODY="$(cat changelog.md)"
-          else
-            BODY=""
-          fi
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "$BODY" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: 🏷️ Create Release
+      - name: Create GitHub Release
+        id: release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ needs.build-and-push.outputs.image-version }}
-          name: Release v${{ needs.build-and-push.outputs.image-version }}
-          body: ${{ steps.notes.outputs.body }}
-          draft: false
-          prerelease: false
+          tag_name: ${{ steps.set-version.outputs.version }}
+          name: ${{ steps.set-version.outputs.version }}
+          body: |
+            $(if [ -f changelog.md ]; then cat changelog.md; else echo ""; fi)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
