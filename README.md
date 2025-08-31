@@ -249,7 +249,7 @@ docker-compose up -d
 
 ## 致谢
 
-本项目代码主要由[Manus AI](https://manus.im)根据多轮指令生成，由[Perplexity AI](https://www.perplexity.ai) (Labs)根据多轮指令精简镜像依赖并设计多阶段构建指令（258MB > 74.8MB）。
+本项目代码主要由[Manus AI](https://manus.im)根据多轮指令生成，由[Perplexity AI](https://www.perplexity.ai) (Labs)根据多轮指令精简镜像依赖并设计多阶段构建指令（258MB > 74.8MB）。[Claude AI](https://claude.ai) (Sonnet 4)完成了IP保留地址跳过与选中复制功能。
 
 ---
 

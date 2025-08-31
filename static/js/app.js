@@ -3,6 +3,7 @@
 let currentTaskId = null;
 let analysisResults = [];
 let statusCheckInterval = null;
+let selectedIPs = new Set(); // 用于存储选中的IP地址
 
 // 全局变量：API验证状态
 let isApiKeyValid = false;
@@ -391,6 +392,9 @@ async function loadResults() {
 
         analysisResults = await response.json();
 
+        // 清空选中的IP
+        selectedIPs.clear();
+
         // 隐藏进度，显示结果
         hideProgressSection();
         showResults();
@@ -421,6 +425,9 @@ function showResults() {
 
     // 重置排序状态
     resetSorting();
+
+    // 更新选择状态显示
+    updateSelectionStatus();
 }
 
 // 更新统计摘要
@@ -466,7 +473,16 @@ function updateResultsTable() {
         const riskClass = getRiskClass(result.risk_level);
 
         row.innerHTML = `
-            <td>${result.ip}</td>
+            <td>
+                <div class="form-check">
+                    <input class="form-check-input ip-checkbox" type="checkbox" 
+                           value="${result.ip}" id="ip_${index}" 
+                           onchange="handleIPSelection('${result.ip}', this.checked)">
+                    <label class="form-check-label" for="ip_${index}">
+                        ${result.ip}
+                    </label>
+                </div>
+            </td>
             <td><span class="badge ${riskClass}">${result.risk_level || '未知'}</span></td>
             <td>${result.abuse_confidence || 'N/A'}</td>
             <td>${result.total_reports || 'N/A'}</td>
@@ -479,6 +495,126 @@ function updateResultsTable() {
 
         tbody.appendChild(row);
     });
+}
+
+// 处理IP选择
+function handleIPSelection(ip, isSelected) {
+    if (isSelected) {
+        selectedIPs.add(ip);
+    } else {
+        selectedIPs.delete(ip);
+    }
+    updateSelectionStatus();
+}
+
+// 全选/取消全选功能
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const ipCheckboxes = document.querySelectorAll('.ip-checkbox');
+    const isSelectAll = selectAllCheckbox.checked;
+
+    selectedIPs.clear();
+
+    ipCheckboxes.forEach(checkbox => {
+        checkbox.checked = isSelectAll;
+        if (isSelectAll) {
+            selectedIPs.add(checkbox.value);
+        }
+    });
+
+    updateSelectionStatus();
+}
+
+// 更新选择状态显示
+function updateSelectionStatus() {
+    const selectedCount = selectedIPs.size;
+    const selectionStatus = document.getElementById('selectionStatus');
+    const copySelectedBtn = document.getElementById('copySelectedBtn');
+
+    if (selectedCount > 0) {
+        selectionStatus.textContent = `已选择 ${selectedCount} 个IP地址`;
+        selectionStatus.className = 'text-primary fw-bold';
+        copySelectedBtn.disabled = false;
+        copySelectedBtn.className = 'btn btn-primary';
+        copySelectedBtn.innerHTML = `<i class="fas fa-copy"></i> 复制选中IP (${selectedCount})`;
+    } else {
+        selectionStatus.textContent = '未选择IP地址';
+        selectionStatus.className = 'text-muted';
+        copySelectedBtn.disabled = true;
+        copySelectedBtn.className = 'btn btn-secondary';
+        copySelectedBtn.innerHTML = '<i class="fas fa-copy"></i> 复制选中IP';
+    }
+}
+
+// 复制选中的IP地址到剪贴板
+async function copySelectedIPs() {
+    if (selectedIPs.size === 0) {
+        alert('请先选择要复制的IP地址');
+        return;
+    }
+
+    const ipList = Array.from(selectedIPs).join('\n');
+    
+    try {
+        await navigator.clipboard.writeText(ipList);
+        
+        // 显示成功提示
+        const copyBtn = document.getElementById('copySelectedBtn');
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="fas fa-check"></i> 已复制!';
+        copyBtn.className = 'btn btn-success';
+        
+        setTimeout(() => {
+            copyBtn.innerHTML = originalText;
+            copyBtn.className = 'btn btn-primary';
+        }, 2000);
+        
+        // 可选：显示一个临时提示
+        showCopyNotification(`已复制 ${selectedIPs.size} 个IP地址到剪贴板`);
+        
+    } catch (err) {
+        console.error('复制失败:', err);
+        
+        // 降级方案：使用旧的复制方法
+        try {
+            const textArea = document.createElement('textarea');
+            textArea.value = ipList;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            showCopyNotification(`已复制 ${selectedIPs.size} 个IP地址到剪贴板`);
+        } catch (fallbackErr) {
+            alert('复制失败，请手动复制以下内容：\n\n' + ipList);
+        }
+    }
+}
+
+// 显示复制成功通知
+function showCopyNotification(message) {
+    // 创建通知元素
+    const notification = document.createElement('div');
+    notification.className = 'alert alert-success position-fixed';
+    notification.style.cssText = `
+        top: 20px;
+        right: 20px;
+        z-index: 1050;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    notification.innerHTML = `
+        <i class="fas fa-check-circle"></i> ${message}
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // 3秒后自动移除
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 3000);
 }
 
 // 获取风险等级CSS类
@@ -656,53 +792,4 @@ function updateSortHeaders(activeField, direction) {
         const icon = header.querySelector('i');
 
         if (field === activeField) {
-            icon.className = direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
-        } else {
-            icon.className = 'fas fa-sort';
-        }
-    });
-}
-
-// 使用排序后的数据更新表格
-function updateResultsTableWithSortedData(sortedResults) {
-    const tbody = document.getElementById('resultsTableBody');
-    tbody.innerHTML = '';
-
-    sortedResults.forEach((result, index) => {
-        const row = document.createElement('tr');
-
-        // 风险等级颜色
-        const riskClass = getRiskClass(result.risk_level);
-
-        // 找到原始索引
-        const originalIndex = analysisResults.findIndex(r => r.ip === result.ip && r.timestamp === result.timestamp);
-
-        row.innerHTML = `
-            <td>${result.ip}</td>
-            <td><span class="badge ${riskClass}">${result.risk_level || '未知'}</span></td>
-            <td>${result.abuse_confidence || 'N/A'}</td>
-            <td>${result.total_reports || 'N/A'}</td>
-            <td>${result.country || 'N/A'}</td>
-            <td>${result.city || 'N/A'}</td>
-            <td>${result.org || 'N/A'}</td>
-            <td>${result.dns_ptr || 'N/A'}</td>
-            <td><button class="btn btn-sm btn-outline-info" onclick="showDetails(${originalIndex})"><i class="fas fa-info-circle"></i></button></td>
-        `;
-
-        tbody.appendChild(row);
-    });
-}
-
-// 重置排序状态
-function resetSorting() {
-    currentSortField = null;
-    currentSortDirection = 'asc';
-
-    const headers = document.querySelectorAll('.sortable');
-    headers.forEach(header => {
-        const icon = header.querySelector('i');
-        if (icon) {
-            icon.className = 'fas fa-sort';
-        }
-    });
-}
+            icon.className = direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-
